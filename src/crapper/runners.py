@@ -538,11 +538,20 @@ def _cover_python(root: Path, files: list[Path]) -> None:
         report.parent.mkdir(parents=True, exist_ok=True)
         data_file = report.parent / ".coverage"
         report.unlink(missing_ok=True)
-        data_file.unlink(missing_ok=True)
+        for old in (data_file, *_python_pieces(data_file)):
+            old.unlink(missing_ok=True)
         run_cmd, lcov_cmd = python_coverage_commands(
             py, _python_kind(py, package), data_file, report, python_sources(package, files)
         )
-        _record_python_lcov(package, run_shell(run_cmd, package), data_file, lcov_cmd)
+        code = run_shell(run_cmd, package)
+        if _python_pieces(data_file):
+            run_shell([py, "-m", "coverage", "combine", "-q", f"--data-file={data_file}"], package)
+        _record_python_lcov(package, code, data_file, lcov_cmd)
+
+
+def _python_pieces(data_file: Path) -> list[Path]:
+    """Per-process data files, which `parallel` and `patch = subprocess` write."""
+    return sorted(data_file.parent.glob(f"{data_file.name}.*"))
 
 
 def _cover_rust(root: Path, files: list[Path]) -> None:

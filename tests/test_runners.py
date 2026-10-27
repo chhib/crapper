@@ -1,3 +1,4 @@
+import sys
 import json
 from pathlib import Path
 
@@ -547,3 +548,28 @@ def test_vitest_install_restores_manifests_when_install_changes_them(tmp_path, m
 def test_python_sources_name_a_top_level_module_without_its_suffix(tmp_path):
     module = tmp_path / "carddav.py"
     assert python_sources(tmp_path, [module, tmp_path / "test_carddav.py"]) == "carddav"
+
+
+def test_python_coverage_follows_subprocesses(tmp_path):
+    """With coverage.py's `patch = subprocess`, each process writes its own
+    data file. Lines that only ran in a subprocess must still count."""
+    _write(
+        tmp_path,
+        "pyproject.toml",
+        '[tool.pytest.ini_options]\n\n[tool.coverage.run]\npatch = ["subprocess"]\n',
+    )
+    python = _write(tmp_path, ".venv/bin/python", f'#!/bin/sh\nexec "{sys.executable}" "$@"\n')
+    python.chmod(0o755)
+    source = _write(tmp_path, "demo/tool.py", "def main():\n    return 1\n\n\nmain()\n")
+    _write(
+        tmp_path,
+        "tests/test_tool.py",
+        "import subprocess, sys\n\n\ndef test_tool():\n"
+        "    subprocess.run([sys.executable, 'demo/tool.py'], check=True)\n",
+    )
+    stale = tmp_path / "target" / "coverage" / "python" / ".coverage.stale"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("not a data file", encoding="utf-8")
+    run_coverage(tmp_path, [source], None)
+    report = (tmp_path / "target" / "coverage" / "python" / "lcov.info").read_text()
+    assert "DA:2,1" in report
