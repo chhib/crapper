@@ -9,6 +9,7 @@ _SOURCES = [
     ("typescript", "export function view() { return 1 }\n", "src/ui.ts", "view"),
     ("python", "def run():\n    return 1\n", "src/app.py", "run"),
     ("rust", "pub fn open() {}\n", "src/lib.rs", "open"),
+    ("sql", "with a as (select 1)\nselect * from a\n", "models/orders.sql", "a"),
 ]
 
 

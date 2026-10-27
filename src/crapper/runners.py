@@ -70,7 +70,7 @@ def _clean_dir(path: Path) -> None:
         shutil.rmtree(path)
 
 
-_COVERAGE_DIRS = {"typescript", "rust", "go", "python"}
+_COVERAGE_DIRS = {"typescript", "rust", "go", "python", "sql"}
 
 
 def _outside_language_dirs(coverage: Path, path: Path) -> bool:
@@ -562,6 +562,15 @@ def _cover_rust(root: Path, files: list[Path]) -> None:
             _warn(f"Rust coverage exited {code} in {module}. Rust coverage will score 0%.")
 
 
+def _cover_sql(root: Path, files: list[Path]) -> None:
+    """Run each dbt project's unit tests once and record passing models as LCOV."""
+
+    from dbtsql.coverage import write
+
+    sql_files = [file for file in files if language_of(file) == "sql"]
+    write(sql_files, root / "target" / "coverage" / "sql" / "lcov.info")
+
+
 def run_coverage(root: Path, files: list[Path], command: str | None) -> int:
     """Generate coverage reports for the languages present in `files`.
 
@@ -593,4 +602,6 @@ def run_coverage(root: Path, files: list[Path], command: str | None) -> int:
         _cover_python(root, files)
     if "rust" in languages:
         _cover_rust(root, files)
+    if "sql" in languages:
+        _cover_sql(root, files)
     return 0
